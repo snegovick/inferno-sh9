@@ -55,6 +55,22 @@ usage()
 	sys->fprint(stderr, "Usage: sh9 [-n] [-c cmd] [file]\n");
 }
 
+clean_n_chars_seek(sys: Sys, n: int, seek: int) {
+  for (i:=0; i<(n-seek); i++) {
+    sys->print("\b");
+  }        
+  for (i=0; i<n; i++) {
+    sys->print(" ");
+  }
+  for (i=0; i<n; i++) {
+    sys->print("\b");
+  }
+}
+
+clean_n_chars(sys: Sys, n: int) {
+  clean_n_chars_seek(sys, n, 0);
+}
+
 init(ctxt: ref Context, argv: list of string)
 {
 	sys = load Sys Sys->PATH;
@@ -162,17 +178,39 @@ init(ctxt: ref Context, argv: list of string)
       if (temp == 27) {
         state = ST_WAITCMD1;
       } else if (temp == '\b') {
-        if (offset != 0) {
-          sys->print("\b");
-          sys->print(" ");
-          sys->print("\b");
-          offset --;             
+        if (seek == 0) {
+          if (offset != 0) {
+            sys->print("\b");
+            sys->print(" ");
+            sys->print("\b");
+            offset --;
+          }
+        } else {
+          cur_buf := array[1024] of byte;
+          cur_buf[0:] = buf[0:offset];
+          correction := 0;
+          for (i:=0;i<offset;i++) {
+            if ((offset-i-1) == seek) {
+              correction = 1;
+            } else {
+              buf[i-correction] = cur_buf[i];
+            }
+          }
+          clean_n_chars_seek(sys, offset, seek);
+          offset --;
+          for (i=0;i<offset;i++) {
+            sys->print("%c", int(buf[i]));
+          }
+          for (i=0; i<seek; i++) {
+            sys->print("\b");
+          }
         }
       } else {
         buf[offset] = byte(temp);
         offset ++;
         if ((offset >= len buf) || (buf[offset-1] == byte('\n'))) {
           history_entry_cur = 0;
+          seek = 0;
           sys->print("\n");
           arg = tokenize(string buf[0:offset]);
           if(arg != nil) {
@@ -197,15 +235,18 @@ init(ctxt: ref Context, argv: list of string)
         '[' =>
         case temp {
           65 => {      #up press
-            for (i:=0; i<offset; i++) {
-              sys->print("\b");
-            }        
-            for (i=0; i<offset; i++) {
-              sys->print(" ");
-            }
-            for (i=0; i<offset; i++) {
-              sys->print("\b");
-            }        
+            seek = 0;
+            clean_n_chars(sys, offset);
+            # for (i:=0; i<offset; i++) {
+            #   sys->print("\b");
+            # }        
+            # for (i=0; i<offset; i++) {
+            #   sys->print(" ");
+            # }
+            # for (i=0; i<offset; i++) {
+            #   sys->print("\b");
+            # }
+              i:=0;
             
             offset = 0;
             history_entry_cur ++;
@@ -221,6 +262,7 @@ init(ctxt: ref Context, argv: list of string)
             }
           }
           66 => { # down key
+            seek = 0;
             if (history_entry_cur > 0) {
               history_entry_cur --;
               
