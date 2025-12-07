@@ -1,27 +1,29 @@
 implement Sh9;
 
 include "sys.m";
-sys: Sys;
-FD: import Sys;
+  sys: Sys;
+  FD: import Sys;
 
 include "draw.m";
-Context: import Draw;
+  Context: import Draw;
 
 include "filepat.m";
-filepat: Filepat;
-nofilepat := 0;			# true if load Filepat has failed.
+  filepat: Filepat;
+  nofilepat := 0;			# true if load Filepat has failed.
 
 include "bufio.m";
-bufio: Bufio;
-Iobuf: import bufio;
+  bufio: Bufio;
+  Iobuf: import bufio;
 
 include "env.m";
-env: Env;
+  env: Env;
 
 include "hash.m";
-hash: Hash;
-HashTable: import hash;
-HashVal: import hash;
+  hash: Hash;
+  HashTable: import hash;
+  HashVal: import hash;
+
+include "workdir.m";
 
 stdin: ref FD;
 stderr: ref FD;
@@ -146,7 +148,7 @@ init(ctxt: ref Context, argv: list of string)
   
 	#stdin = sys->fildes(0);
   
-	prompt := sysname() + "$ ";
+	prompt := getusername() + "@" + sysname() + ":" + getcwd() + "; ";
   offset : int = 0;
   temp : int;
   last_cmdline := array[1024] of int;
@@ -209,6 +211,7 @@ init(ctxt: ref Context, argv: list of string)
         buf[offset] = byte(temp);
         offset ++;
         if ((offset >= len buf) || (buf[offset-1] == byte('\n'))) {
+          #sys->print("enter\n");
           history_entry_cur = 0;
           seek = 0;
           sys->print("\n");
@@ -219,7 +222,8 @@ init(ctxt: ref Context, argv: list of string)
             history_len++;
           }
           offset = 0;
-          sys->print("\n%s", prompt);
+          prompt = getusername() + "@" + sysname() + ":" + getcwd() + "; ";
+          sys->print("%s", prompt);
         } else {
           sys->print("%c",temp);
         }
@@ -237,26 +241,18 @@ init(ctxt: ref Context, argv: list of string)
           65 => {      #up press
             seek = 0;
             clean_n_chars(sys, offset);
-            # for (i:=0; i<offset; i++) {
-            #   sys->print("\b");
-            # }        
-            # for (i=0; i<offset; i++) {
-            #   sys->print(" ");
-            # }
-            # for (i=0; i<offset; i++) {
-            #   sys->print("\b");
-            # }
-              i:=0;
             
             offset = 0;
-            history_entry_cur ++;
             he := history_len;
-            he -= history_entry_cur;
+            if (history_entry_cur < history_len) {
+              history_entry_cur ++;
+              he -= history_entry_cur;
+            }
             cmdline := history.find(sys->sprint("%d", he));
             if (cmdline != nil) {
               sys->print("%s", cmdline.s);
               offset = len cmdline.s;
-              for (i=0;i<len cmdline.s;i++) {
+              for (i:=0; i<len cmdline.s; i++) {
                 buf[i] = byte(cmdline.s[i]);
               }
             }
@@ -265,16 +261,8 @@ init(ctxt: ref Context, argv: list of string)
             seek = 0;
             if (history_entry_cur > 0) {
               history_entry_cur --;
-              
-              for (i:=0; i<offset; i++) {
-                sys->print("\b");
-              }        
-              for (i=0; i<offset; i++) {
-                sys->print(" ");
-              }
-              for (i=0; i<offset; i++) {
-                sys->print("\b");
-              }
+              clean_n_chars(sys, offset);
+
               offset = 0;
               he := history_len;
               he -= history_entry_cur;
@@ -282,7 +270,7 @@ init(ctxt: ref Context, argv: list of string)
               if (cmdline != nil) {
                 sys->print("%s", cmdline.s);
                 offset = len cmdline.s;
-                for (i=0;i<len cmdline.s;i++) {
+                for (i:=0; i<len cmdline.s; i++) {
                   buf[i] = byte(cmdline.s[i]);
                 }
               }
@@ -297,22 +285,27 @@ init(ctxt: ref Context, argv: list of string)
             }
           }
           67 => { # right key
-            for (i:=0; i<(offset-seek); i++) {
-              sys->print("\b");
-            }        
-            for (i=0; i<offset; i++) {
-              sys->print(" ");
-            }
-            for (i=0; i<offset; i++) {
-              sys->print("\b");
-            }
-            for (i=0; i<offset; i++) {
+            clean_n_chars_seek(sys, offset, seek);
+            for (i:=0; i<offset; i++) {
               sys->print("%c", int(buf[i]));
             }
             if (seek > 0) {
               seek --;
             }
             for (i=0; i<seek; i++) {
+              sys->print("\b");
+            }
+          }
+          70 => { # end key
+            clean_n_chars_seek(sys, offset, seek);
+            seek = 0;
+            for (i:=0; i<offset; i++) {
+              sys->print("%c", int(buf[i]));
+            }
+          }
+          72 => { # home key
+            seek = offset;
+            for (i:=0; i<seek; i++) {
               sys->print("\b");
             }
           }
@@ -832,4 +825,32 @@ gethome(): string
   if(n < 0)
     return "/";
   return "/usr/" + string buf[0:n];
+}
+
+getusername(): string
+{
+	fd := sys->open("/dev/user", sys->OREAD);
+  if(fd == nil)
+    return "/";
+  buf := array[128] of byte;
+  n := sys->read(fd, buf, len buf);
+  if(n < 0)
+    return "?";
+  return string buf[0:n];
+}
+
+getcwd(): string
+{
+	gwd := load Workdir Workdir->PATH;
+	if (gwd == nil) {
+		sys->fprint(stderr, "pwd: cannot load %s: %r\n", Workdir->PATH);
+		raise "fail:bad module";
+	}
+
+	wd := gwd->init();
+	if(wd == nil) {
+		sys->fprint(stderr, "pwd: %r\n");
+		raise "fail:error";
+	}
+  return wd;
 }
