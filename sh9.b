@@ -145,7 +145,6 @@ init(ctxt: ref Context, argv: list of string)
 	if(dfd == nil)
 		return;
   
-  
 	#stdin = sys->fildes(0);
   
 	prompt := getusername() + "@" + sysname() + ":" + getcwd() + "; ";
@@ -178,7 +177,10 @@ init(ctxt: ref Context, argv: list of string)
       ST_NORMAL =>
       # check if escape
       if (temp == 27) {
-        state = ST_WAITCMD1;
+        state = ST_WAITCMD1; # is escape
+      } else if (temp == '\t') {
+        # tab complete rq
+        sys->print("tab");
       } else if (temp == '\b') {
         if (seek == 0) {
           if (offset != 0) {
@@ -211,7 +213,6 @@ init(ctxt: ref Context, argv: list of string)
         buf[offset] = byte(temp);
         offset ++;
         if ((offset >= len buf) || (buf[offset-1] == byte('\n'))) {
-          #sys->print("enter\n");
           history_entry_cur = 0;
           seek = 0;
           sys->print("\n");
