@@ -7,3 +7,11 @@ How is it different from out-of-the box shell ?
 * Has current working directory and username in its prompt instead of just ";"
 
 Hopefully will get more tiny conveniences of modern-ish shells
+
+## Build and install
+
+Run this to build dis files and install module files:
+
+```
+mk clean; mk; mk install
+```
