@@ -1,0 +1,9 @@
+<../mkconfig
+
+MODS=\
+	sh9util.m\
+	sh9parser.m\
+
+<mkmod
+
+nuke:QV:

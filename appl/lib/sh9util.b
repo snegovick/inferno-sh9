@@ -8,7 +8,7 @@ reverse_list[T](toks: list of T): list of T
   out : list of T;
   for (i := 0; i < lt; i ++) {
     tok := hd toks;
-    #toks = tl toks;
+    toks = tl toks;
     out = tok :: out;
   }
   return out;

@@ -1,6 +1,6 @@
 Sh9Util: module
 {
-PATH: con "sh9util.dis";
+PATH: con "/dis/lib/sh9util.dis";
 DESCR: con "Utility functions for sh9";
 
 reverse_list: fn[T](toks: list of T): list of T;

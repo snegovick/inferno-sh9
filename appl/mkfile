@@ -1,7 +1,7 @@
-<mkconfig
+<../mkconfig
 
 DIRS=\
-	module\
-	appl\
+	lib\
+	cmd\
 
 <$ROOT/mkfiles/mksubdirs

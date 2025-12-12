@@ -1,0 +1,19 @@
+<../../mkconfig
+
+TARG=\
+	sh9util.dis\
+	sh9parser.dis\
+  
+
+SYSMODULES=\
+  sh9util.m\
+  sh9parser.m\
+	sys.m\
+
+
+MODULES=\
+  
+
+DISBIN=$ROOT/dis/lib
+
+<$ROOT/mkfiles/mkdis

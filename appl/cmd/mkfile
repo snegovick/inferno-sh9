@@ -1,0 +1,14 @@
+<../../mkconfig
+
+TARG=\
+	sh9.dis\
+  sh92.dis\
+
+SYSMODULES=\
+  sh9util.m\
+  sh9parser.m\
+	sys.m\
+
+DISBIN=$ROOT/dis
+
+<$ROOT/mkfiles/mkdis

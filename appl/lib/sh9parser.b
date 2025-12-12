@@ -24,18 +24,29 @@ GrammarNode.print_expr(gn: self ref GrammarNode) {
   }
 }
 
-mk_tok(start: int, line: int, tok: string, typ: string) : TokNode {
+init()
+{
+	sys = load Sys Sys->PATH;
+  sh9u = load Sh9Util Sh9Util->PATH;
+}
+
+mk_tok(start: int, line: int, tok: string, typ: string) : ref TokNode {
   tok_node: TokNode;
   tok_node.start = start;
   tok_node.line = line;
   tok_node.tok = tok;
   tok_node.typ = typ;
-  return tok_node;
+  return ref tok_node;
 }
 
-set_last_tok(last_tok: ref TokNode, toks: list of ref TokNode): (TokNode, list of ref TokNode) {
+set_last_tok(last_tok: ref TokNode, toks: list of ref TokNode): (ref TokNode, list of ref TokNode) {
+  sys->print("last_tok: %s\n", last_tok.typ);
   ret_tok: TokNode;
-  ret_tok = *last_tok;
+  #ret_tok = *last_tok;
+  ret_tok.typ = last_tok.typ;
+  ret_tok.start = last_tok.start;
+  ret_tok.tok = last_tok.tok;
+  ret_tok.line = last_tok.line;
   if (last_tok.typ != S_UNKNOWN) {
     toks = last_tok :: toks;
     ret_tok.typ = S_UNKNOWN;
@@ -43,7 +54,8 @@ set_last_tok(last_tok: ref TokNode, toks: list of ref TokNode): (TokNode, list o
     ret_tok.tok = "";
     ret_tok.line = -1;
   }
-  return (ret_tok, toks);
+  sys->print("ret_tok: %s\n", ret_tok.typ);
+  return (ref ret_tok, toks);
 }
 
 print_toks(toks: array of ref TokNode) {
@@ -118,7 +130,7 @@ parse_toks(toks: array of ref TokNode, g: array of ref GrammarNode): array of re
           sys->print("Before replace: ");
           print_toks_short(toks);
           gj.callback(toks[lt-i: lt-i+len gj.expr]);
-          toks = replace_toks(toks, lt-i, len gj.expr, array[] of {ref mk_tok(toks[lt - i].start, toks[lt - i].line, "", gj.transform)});
+          toks = replace_toks(toks, lt-i, len gj.expr, array[] of {mk_tok(toks[lt - i].start, toks[lt - i].line, "", gj.transform)});
           sys->print("After replace: ");
           changed = 1;
           break fast;

@@ -63,11 +63,12 @@ S_CALL: con "CALL";
 
 tokenize(line: string, line_n: int): array of ref TokNode {
   toks : list of ref TokNode;
-  last_tok: TokNode;
+  last_tok:= ref TokNode;
   last_tok.start = -1;
   last_tok.line = -1;
   last_tok.tok = "";
   last_tok.typ = S_UNKNOWN;
+  k:=0;
 
   for (i := 0; i < len line; i++) {
     if (last_tok.typ == S_DQSTR) {
@@ -77,7 +78,7 @@ tokenize(line: string, line_n: int): array of ref TokNode {
           if ((last_tok.tok[l-1:] != "\\") || ((last_tok.tok[l-1:] == "\\") && (last_tok.tok[l-2:l-1] == "\\"))) {
             # end of str
             last_tok.tok = last_tok.tok + line[i:i+1];
-            (last_tok, toks) = set_last_tok(ref last_tok, toks);
+            (last_tok, toks) = set_last_tok(last_tok, toks);
           } else {
             # escaped dqte, just continue
             last_tok.tok = last_tok.tok + line[i:i+1];
@@ -94,7 +95,7 @@ tokenize(line: string, line_n: int): array of ref TokNode {
           if ((last_tok.tok[l-1:] != "\\") || ((last_tok.tok[l-1:] == "\\") && (last_tok.tok[l-2:l-1] == "\\"))) {
             # end of str
             last_tok.tok = last_tok.tok + line[i:i+1];
-            (last_tok, toks) = set_last_tok(ref last_tok, toks);
+            (last_tok, toks) = set_last_tok(last_tok, toks);
           } else {
             # escaped sqte, just continue
             last_tok.tok = last_tok.tok + line[i:i+1];
@@ -107,45 +108,45 @@ tokenize(line: string, line_n: int): array of ref TokNode {
     } else {
       case (line[i:i+1]) {
         " " or "\t" => {
-          (last_tok, toks) = set_last_tok(ref last_tok, toks);
+          (last_tok, toks) = set_last_tok(last_tok, toks);
         };
         "=" => {
-          (last_tok, toks) = set_last_tok(ref last_tok, toks);
-          toks = ref mk_tok(i, line_n, "=", S_EQ) :: toks;
+          (last_tok, toks) = set_last_tok(last_tok, toks);
+          toks = mk_tok(i, line_n, "=", S_EQ) :: toks;
         };
         ";" => {
-          (last_tok, toks) = set_last_tok(ref last_tok, toks);
-          toks = ref mk_tok(i, line_n, ";", S_SEMIC) :: toks;
+          (last_tok, toks) = set_last_tok(last_tok, toks);
+          toks = mk_tok(i, line_n, ";", S_SEMIC) :: toks;
         };
         "$" => {
-          (last_tok, toks) = set_last_tok(ref last_tok, toks);
-          toks = ref mk_tok(i, line_n, "$", S_DOL) :: toks;
+          (last_tok, toks) = set_last_tok(last_tok, toks);
+          toks = mk_tok(i, line_n, "$", S_DOL) :: toks;
         };
         "(" => {
-          (last_tok, toks) = set_last_tok(ref last_tok, toks);
-          toks = ref mk_tok(i, line_n, "(", S_LPAR) :: toks;
+          (last_tok, toks) = set_last_tok(last_tok, toks);
+          toks = mk_tok(i, line_n, "(", S_LPAR) :: toks;
         };
         ")" => {
-          (last_tok, toks) = set_last_tok(ref last_tok, toks);
-          toks = ref mk_tok(i, line_n, ")", S_RPAR) :: toks;
+          (last_tok, toks) = set_last_tok(last_tok, toks);
+          toks = mk_tok(i, line_n, ")", S_RPAR) :: toks;
         };
         "{" => {
-          (last_tok, toks) = set_last_tok(ref last_tok, toks);
-          toks = ref mk_tok(i, line_n, "{", S_LCURLY) :: toks;
+          (last_tok, toks) = set_last_tok(last_tok, toks);
+          toks = mk_tok(i, line_n, "{", S_LCURLY) :: toks;
           };
           "}" => {
-            (last_tok, toks) = set_last_tok(ref last_tok, toks);
-            toks = ref mk_tok(i, line_n, "}", S_RCURLY) :: toks;
+            (last_tok, toks) = set_last_tok(last_tok, toks);
+            toks = mk_tok(i, line_n, "}", S_RCURLY) :: toks;
           };
           "\"" => {
-            (last_tok, toks) = set_last_tok(ref last_tok, toks);
+            (last_tok, toks) = set_last_tok(last_tok, toks);
             last_tok.start = i;
             last_tok.line = line_n;
             last_tok.typ = S_DQSTR;
             last_tok.tok = last_tok.tok + line[i:i+1];
           };
           "'" => {
-            (last_tok, toks) = set_last_tok(ref last_tok, toks);
+            (last_tok, toks) = set_last_tok(last_tok, toks);
             last_tok.start = i;
             last_tok.line = line_n;
             last_tok.typ = S_SQSTR;
@@ -162,8 +163,8 @@ tokenize(line: string, line_n: int): array of ref TokNode {
       }
     }
   }
-  (last_tok, toks) = set_last_tok(ref last_tok, toks);
-  toks = ref mk_tok(i, line_n, "", S_EOL) :: toks;
+  (last_tok, toks) = set_last_tok(last_tok, toks);
+  toks = mk_tok(i, line_n, "", S_EOL) :: toks;
   toks = reverse_list(toks);
   return to_array(toks);
 }
@@ -180,10 +181,16 @@ empty(toks: array of ref TokNode) {
   sys->print("EMPTY\n");
 }
 
+Te: adt{
+  s: string;
+};
+
 init(ctxt: ref Draw->Context, argv: list of string) {
   sys = load Sys Sys->PATH;
   sh9u = load Sh9Util Sh9Util->PATH;
   sh9p = load Sh9Parser Sh9Parser->PATH;
+  sh9p->init();
+
 
   assign_g_semic : GrammarNode = (array [] of {S_ID, S_EQ, S_EXPR, S_SEMIC}, S_UNKNOWN, stmt_assign);
   assign_g_eol : GrammarNode = (array [] of {S_ID, S_EQ, S_EXPR, S_EOL}, S_UNKNOWN, stmt_assign);
@@ -193,7 +200,7 @@ init(ctxt: ref Draw->Context, argv: list of string) {
   grammar: array of ref GrammarNode;
   grammar = array [] of {ref assign_g_semic, ref assign_g_eol, ref sqstr_expr_g, ref str_expr_g, ref cmd_call_g};
 
-  toks1 := tokenize("A = 'smth \"test\"  ';", 0);
+  toks1 := tokenize("AB = 'smth \"test\"  ';", 0);
   print_toks(toks1);
   sys->print("Parse\n");
   parse_toks(toks1, grammar);
