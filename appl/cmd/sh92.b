@@ -13,22 +13,11 @@ Sh92: module {
   init: fn(nil: ref Draw->Context, nil: list of string);
 };
 
-ModProc: adt {
-  name: string;
-  start: int;
-};
-
-ModVar: adt {
-  name: string;
-  val: string;
-};
-
-ShModule: adt {
-  global_vars: list of ref ModVar;
-  procs: list of ref ModProc;
-};
-
 GrammarNode: import sh9p;
+ModProc: import sh9p;
+ModVar: import sh9p;
+ShModule: import sh9p;
+ParserCtx: import sh9p;
 TokNode: import sh9p;
 mk_tok: import sh9p;
 set_last_tok: import sh9p;
@@ -39,10 +28,10 @@ reverse_list: import sh9u;
 to_array: import sh9u;
 
 S_UNKNOWN: con "UNK";
+S_NONE: con "NONE";
 S_ID: con "ID";
 S_STR: con "STR";
 S_EQ: con "EQ";
-S_DOL: con "DOL";
 S_COLON: con "COLON";
 S_SEMIC: con "SEMIC";
 S_LPAR: con "LPAR";
@@ -55,6 +44,7 @@ S_DQTE: con "DQTE";
 S_SQTE: con "SQTE";
 S_SP: con "SP";
 S_TAB: con "TAB";
+S_DOLL: con "DOLL";
 S_EOL: con "EOL";
 
 S_STMT: con "STMT";
@@ -118,9 +108,9 @@ tokenize(line: string, line_n: int): array of ref TokNode {
           (last_tok, toks) = set_last_tok(last_tok, toks);
           toks = mk_tok(i, line_n, ";", S_SEMIC) :: toks;
         };
-        "$" => {
+        ":" => {
           (last_tok, toks) = set_last_tok(last_tok, toks);
-          toks = mk_tok(i, line_n, "$", S_DOL) :: toks;
+          toks = mk_tok(i, line_n, ":", S_COLON) :: toks;
         };
         "(" => {
           (last_tok, toks) = set_last_tok(last_tok, toks);
@@ -137,6 +127,10 @@ tokenize(line: string, line_n: int): array of ref TokNode {
           "}" => {
             (last_tok, toks) = set_last_tok(last_tok, toks);
             toks = mk_tok(i, line_n, "}", S_RCURLY) :: toks;
+          };
+          "$" => {
+            (last_tok, toks) = set_last_tok(last_tok, toks);
+            toks = mk_tok(i, line_n, "$", S_DOLL) :: toks;
           };
           "\"" => {
             (last_tok, toks) = set_last_tok(last_tok, toks);
@@ -169,21 +163,54 @@ tokenize(line: string, line_n: int): array of ref TokNode {
   return to_array(toks);
 }
 
-stmt_assign(toks: array of ref TokNode) {
+stmt_assign(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
   sys->print("ASSIGN STMT\n");
+  return array[0] of ref TokNode;
 }
 
-stmt_cmd_call(toks: array of ref TokNode) {
+stmt_cmd_call(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
   sys->print("CMD CALL\n");
+  return array[0] of ref TokNode;
 }
 
-empty(toks: array of ref TokNode) {
-  sys->print("EMPTY\n");
+empty(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
+  return array[0] of ref TokNode;
 }
 
-Te: adt{
-  s: string;
-};
+var_sub_expr(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
+  sys->print("VAR SUB\n");
+  return array[0] of ref TokNode;
+}
+
+
+mk_grammar(ctx: ref ParserCtx): array of ref GrammarNode
+{
+  semic_eol_g :      GrammarNode = (array [] of {S_SEMIC, S_EOL}, S_EOL, empty, ctx);
+  assign_g_semic :   GrammarNode = (array [] of {S_ID, S_EQ, S_EXPR, S_SEMIC}, S_NONE, stmt_assign, ctx);
+  assign_g_eol :     GrammarNode = (array [] of {S_ID, S_EQ, S_EXPR, S_EOL}, S_NONE, stmt_assign, ctx);
+  sqstr_expr_g:      GrammarNode = (array [] of {S_SQSTR}, S_EXPR, empty, ctx);
+  str_expr_g:        GrammarNode = (array [] of {S_STR}, S_EXPR, empty, ctx);
+  expr_combinator_g: GrammarNode = (array [] of {S_EXPR, S_EXPR}, S_EXPR, empty, ctx);
+  cmd_call_g:        GrammarNode = (array [] of {S_ID, S_EXPR, S_SEMIC}, nil, stmt_cmd_call, ctx);
+
+  var_sub_g:         GrammarNode = (array [] of {S_DOLL, S_ID}, nil, var_sub_expr, ctx);
+  var_sub_curl_g:    GrammarNode = (array [] of {S_DOLL, S_LCURLY, S_ID, S_RCURLY}, nil, var_sub_expr, ctx);
+  dqstr_expr_g:      GrammarNode = (array [] of {S_DQTE, S_EXPR, S_DQTE}, nil, empty, ctx);
+
+  grammar: array of ref GrammarNode;
+  grammar = array [] of {
+    ref semic_eol_g,
+    ref assign_g_semic,
+    ref assign_g_eol,
+    ref sqstr_expr_g,
+    ref str_expr_g,
+    ref cmd_call_g,
+    ref expr_combinator_g,
+    ref var_sub_g,
+    ref var_sub_curl_g,
+  };
+  return grammar;
+}
 
 init(ctxt: ref Draw->Context, argv: list of string) {
   sys = load Sys Sys->PATH;
@@ -191,20 +218,15 @@ init(ctxt: ref Draw->Context, argv: list of string) {
   sh9p = load Sh9Parser Sh9Parser->PATH;
   sh9p->init();
 
-
-  assign_g_semic : GrammarNode = (array [] of {S_ID, S_EQ, S_EXPR, S_SEMIC}, S_UNKNOWN, stmt_assign);
-  assign_g_eol : GrammarNode = (array [] of {S_ID, S_EQ, S_EXPR, S_EOL}, S_UNKNOWN, stmt_assign);
-  sqstr_expr_g: GrammarNode = (array [] of {S_SQSTR}, S_EXPR, empty);
-  str_expr_g: GrammarNode = (array [] of {S_STR}, S_EXPR, empty);
-  cmd_call_g: GrammarNode = (array [] of {S_ID, S_EQ, S_EXPR, S_SEMIC}, S_UNKNOWN, stmt_cmd_call);
-  grammar: array of ref GrammarNode;
-  grammar = array [] of {ref assign_g_semic, ref assign_g_eol, ref sqstr_expr_g, ref str_expr_g, ref cmd_call_g};
+  pctx:= ref ParserCtx;
+  pctx.add_module("shell");
 
   toks1 := tokenize("AB = 'smth \"test\"  ';", 0);
-  print_toks(toks1);
-  sys->print("Parse\n");
+  #print_toks(toks1);
+  #sys->print("Parse\n");
+  grammar:= mk_grammar(pctx);
   parse_toks(toks1, grammar);
-  sys->print("Parse done\n");
+  #sys->print("Parse done\n");
 
   # toks2 := tokenize("echo \"smth \" \"test\";", 0);
   # print_toks(toks2);

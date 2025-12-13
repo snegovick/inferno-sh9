@@ -6,13 +6,15 @@ include "sh9util.m";
 
 sys: Sys;
 S_UNKNOWN: con "UNK";
+S_NONE: con "NONE";
 
 sh9u: Sh9Util;
 
 reverse_list: import sh9u;
 to_array: import sh9u;
 
-GrammarNode.print_expr(gn: self ref GrammarNode) {
+GrammarNode.print_expr(gn: self ref GrammarNode)
+{
   lg:= len gn.expr;
   for (i:=0; i<lg; i++) {
     sys->print("%s ", gn.expr[i]);
@@ -24,13 +26,21 @@ GrammarNode.print_expr(gn: self ref GrammarNode) {
   }
 }
 
+ParserCtx.add_module(ctx: self ref ParserCtx, name: string)
+{
+  m:= ref ShModule;
+  m.name = name;
+  ctx.modules = m :: ctx.modules;
+}
+
 init()
 {
 	sys = load Sys Sys->PATH;
   sh9u = load Sh9Util Sh9Util->PATH;
 }
 
-mk_tok(start: int, line: int, tok: string, typ: string) : ref TokNode {
+mk_tok(start: int, line: int, tok: string, typ: string) : ref TokNode
+{
   tok_node: TokNode;
   tok_node.start = start;
   tok_node.line = line;
@@ -40,7 +50,7 @@ mk_tok(start: int, line: int, tok: string, typ: string) : ref TokNode {
 }
 
 set_last_tok(last_tok: ref TokNode, toks: list of ref TokNode): (ref TokNode, list of ref TokNode) {
-  sys->print("last_tok: %s\n", last_tok.typ);
+  #sys->print("last_tok: %s\n", last_tok.typ);
   ret_tok: TokNode;
   #ret_tok = *last_tok;
   ret_tok.typ = last_tok.typ;
@@ -54,7 +64,7 @@ set_last_tok(last_tok: ref TokNode, toks: list of ref TokNode): (ref TokNode, li
     ret_tok.tok = "";
     ret_tok.line = -1;
   }
-  sys->print("ret_tok: %s\n", ret_tok.typ);
+  #sys->print("ret_tok: %s\n", ret_tok.typ);
   return (ref ret_tok, toks);
 }
 
@@ -82,9 +92,9 @@ check_grammar_node_match(toks: array of ref TokNode, gn: ref GrammarNode): int {
     return 0;
   }
   #sys->print("Checking grammar ");
-  gn.print_expr();
+  #gn.print_expr();
   #sys->print("Against ");
-  print_toks(toks);
+  #print_toks(toks);
   for (i:= 0; i < lg; i ++) {
     if (toks[i].typ != gn.expr[i]) {
       return 0;
@@ -117,21 +127,26 @@ parse_toks(toks: array of ref TokNode, g: array of ref GrammarNode): array of re
   do
   {
     lt := len toks;
-    sys->print("Loop %d: ", ctr);
-    print_toks_short(toks);
+    #sys->print("Loop %d: ", ctr);
+    #print_toks_short(toks);
     ctr ++;
     changed = 0;
     fast: for (i := 0; i <= lt; i ++) {
       for (j := 0; j < lgns; j++) {
         gj:= g[j];
         if (check_grammar_node_match(toks[lt - i:], gj) == 1) {
-          sys->print("Something matched !\n");
-          gj.print_expr();
-          sys->print("Before replace: ");
-          print_toks_short(toks);
-          gj.callback(toks[lt-i: lt-i+len gj.expr]);
-          toks = replace_toks(toks, lt-i, len gj.expr, array[] of {mk_tok(toks[lt - i].start, toks[lt - i].line, "", gj.transform)});
-          sys->print("After replace: ");
+          #sys->print("Something matched !\n");
+          #gj.print_expr();
+          #sys->print("Before replace: ");
+          #print_toks_short(toks);
+
+          gj.callback(gj.ctx, toks[lt-i: lt-i+len gj.expr]);
+          if (gj.transform == S_NONE) {
+            toks = replace_toks(toks, lt-i, len gj.expr, array[0] of ref TokNode);
+          } else {
+            toks = replace_toks(toks, lt-i, len gj.expr, array[] of {mk_tok(toks[lt - i].start, toks[lt - i].line, "", gj.transform)});
+          }
+          #sys->print("After replace: ");
           changed = 1;
           break fast;
         }

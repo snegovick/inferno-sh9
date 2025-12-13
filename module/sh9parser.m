@@ -19,11 +19,33 @@ TokNode: adt {
   typ: string;
 };
 
+ModProc: adt {
+  name: string;
+  start: int;
+};
+
+ModVar: adt {
+  name: string;
+  val: string;
+};
+
+ShModule: adt {
+  name: string;
+  vars: list of ref ModVar;
+  procs: list of ref ModProc;
+};
+
+ParserCtx: adt {
+  modules: list of ref ShModule;
+  add_module: fn(ctx: self ref ParserCtx, name: string);
+};
+
 GrammarNode: adt {
   expr: array of string;
   transform: string;
 
-  callback: ref fn(toks: array of ref TokNode);
+  callback: ref fn(ctx: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode;
+  ctx: ref ParserCtx;
   print_expr: fn(gn: self ref GrammarNode);
 };
 };
