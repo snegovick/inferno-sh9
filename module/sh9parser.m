@@ -33,11 +33,19 @@ ShModule: adt {
   name: string;
   vars: list of ref ModVar;
   procs: list of ref ModProc;
+  find_var: fn(m: self ref ShModule, name: string): ref ModVar;
+  set_var: fn(m: self ref ShModule, v: ref ModVar);
+  print_vars: fn(m: self ref ShModule);
 };
 
 ParserCtx: adt {
   modules: list of ref ShModule;
   add_module: fn(ctx: self ref ParserCtx, name: string);
+  current_module: string;
+  get_current_module: fn(ctx: self ref ParserCtx): ref ShModule;
+  find_var_in_current_module: fn(ctx: self ref ParserCtx, name: string): ref ModVar;
+  find_module: fn(ctx: self ref ParserCtx, name: string): ref ShModule;
+  print_all_vars: fn(ctx: self ref ParserCtx);
 };
 
 GrammarNode: adt {

@@ -165,6 +165,11 @@ tokenize(line: string, line_n: int): array of ref TokNode {
 
 stmt_assign(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
   sys->print("ASSIGN STMT\n");
+  m:= c.get_current_module();
+  v:= ref ModVar;
+  v.name= toks[0].tok;
+  v.val= toks[2].tok;
+  m.set_var(v);
   return array[0] of ref TokNode;
 }
 
@@ -173,25 +178,47 @@ stmt_cmd_call(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNod
   return array[0] of ref TokNode;
 }
 
+sqstr_to_expr(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
+  tn:= mk_tok(toks[0].start, toks[0].line, toks[0].tok, S_EXPR);
+  return array[1] of {tn};
+}
+
 empty(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
   return array[0] of ref TokNode;
 }
 
 var_sub_expr(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
   sys->print("VAR SUB\n");
-  return array[0] of ref TokNode;
+  varname:=toks[1].tok;
+  if (varname == "{") {
+    varname = toks[2].tok;
+  }
+  v:= c.find_var_in_current_module(varname);
+  if (v == nil) {
+    sys->print("Var %s is nil\nAll vars:\n", varname);
+    c.print_all_vars();
+  }
+  sys->print("VAR %s SUB: %s\n", v.name, v.val);
+  tn:= mk_tok(toks[0].start, toks[0].line, v.val, S_EXPR);
+  return array[1] of {tn};
 }
 
+expr_expr_combiner(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
+  comb_tok:= toks[0].tok + " " + toks[1].tok;
+  tn:= mk_tok(toks[0].start, toks[0].line, comb_tok, S_EXPR);
+  return array[1] of {tn};
+}
 
 mk_grammar(ctx: ref ParserCtx): array of ref GrammarNode
 {
   semic_eol_g :      GrammarNode = (array [] of {S_SEMIC, S_EOL}, S_EOL, empty, ctx);
   assign_g_semic :   GrammarNode = (array [] of {S_ID, S_EQ, S_EXPR, S_SEMIC}, S_NONE, stmt_assign, ctx);
   assign_g_eol :     GrammarNode = (array [] of {S_ID, S_EQ, S_EXPR, S_EOL}, S_NONE, stmt_assign, ctx);
-  sqstr_expr_g:      GrammarNode = (array [] of {S_SQSTR}, S_EXPR, empty, ctx);
+  sqstr_expr_g:      GrammarNode = (array [] of {S_SQSTR}, nil, sqstr_to_expr, ctx);
   str_expr_g:        GrammarNode = (array [] of {S_STR}, S_EXPR, empty, ctx);
-  expr_combinator_g: GrammarNode = (array [] of {S_EXPR, S_EXPR}, S_EXPR, empty, ctx);
-  cmd_call_g:        GrammarNode = (array [] of {S_ID, S_EXPR, S_SEMIC}, nil, stmt_cmd_call, ctx);
+  expr_combinator_g: GrammarNode = (array [] of {S_EXPR, S_EXPR}, nil, expr_expr_combiner, ctx);
+  cmd_call_semic_g:  GrammarNode = (array [] of {S_ID, S_EXPR, S_SEMIC}, nil, stmt_cmd_call, ctx);
+  cmd_call_eol_g:    GrammarNode = (array [] of {S_ID, S_EXPR, S_EOL}, nil, stmt_cmd_call, ctx);
 
   var_sub_g:         GrammarNode = (array [] of {S_DOLL, S_ID}, nil, var_sub_expr, ctx);
   var_sub_curl_g:    GrammarNode = (array [] of {S_DOLL, S_LCURLY, S_ID, S_RCURLY}, nil, var_sub_expr, ctx);
@@ -204,7 +231,8 @@ mk_grammar(ctx: ref ParserCtx): array of ref GrammarNode
     ref assign_g_eol,
     ref sqstr_expr_g,
     ref str_expr_g,
-    ref cmd_call_g,
+    ref cmd_call_semic_g,
+    ref cmd_call_eol_g,
     ref expr_combinator_g,
     ref var_sub_g,
     ref var_sub_curl_g,
@@ -221,7 +249,7 @@ init(ctxt: ref Draw->Context, argv: list of string) {
   pctx:= ref ParserCtx;
   pctx.add_module("shell");
 
-  toks1 := tokenize("AB = 'smth \"test\"  ';", 0);
+  toks1 := tokenize("AB = 'smth \"test\"  '; echo ${AB}; echo $AB", 0);
   #print_toks(toks1);
   #sys->print("Parse\n");
   grammar:= mk_grammar(pctx);

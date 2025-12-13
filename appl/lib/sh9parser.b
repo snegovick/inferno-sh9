@@ -26,11 +26,85 @@ GrammarNode.print_expr(gn: self ref GrammarNode)
   }
 }
 
+ShModule.find_var(m: self ref ShModule, name: string): ref ModVar
+{
+  l:= len m.vars;
+  vars := m.vars;
+  for (i:=0; i<l; i++) {
+    v := hd vars;
+    if (v.name == name) {
+      return v;
+    }
+    vars = tl vars;
+  }
+  return nil;
+}
+
+ShModule.print_vars(m: self ref ShModule)
+{
+  l:= len m.vars;
+  vars := m.vars;
+  for (i:=0; i<l; i++) {
+    v := hd vars;
+    sys->print("%s: %s\n", v.name, v.val);
+    vars = tl vars;
+  }
+}
+
+ShModule.set_var(m: self ref ShModule, v: ref ModVar)
+{
+  m.vars = v :: m.vars;
+}
+
 ParserCtx.add_module(ctx: self ref ParserCtx, name: string)
 {
   m:= ref ShModule;
   m.name = name;
+  if (ctx.current_module == nil) {
+    sys->print("Set current module %s\n", name);
+    ctx.current_module = name;
+  }
   ctx.modules = m :: ctx.modules;
+}
+
+ParserCtx.find_module(ctx: self ref ParserCtx, name: string): ref ShModule
+{
+  l:= len ctx.modules;
+  mods := ctx.modules;
+  for (i:=0; i<l; i++) {
+    m := hd mods;
+    if (m.name == name) {
+      return m;
+    }
+    mods = tl mods;
+  }
+  return nil;
+}
+
+ParserCtx.find_var_in_current_module(ctx: self ref ParserCtx, name: string): ref ModVar
+{
+  m := ctx.find_module(ctx.current_module);
+  if (m == nil) {
+    return nil;
+  }
+  return m.find_var(name);
+}
+
+ParserCtx.print_all_vars(ctx: self ref ParserCtx)
+{
+  l:= len ctx.modules;
+  mods := ctx.modules;
+  for (i:=0; i<l; i++) {
+    m := hd mods;
+    m.print_vars();
+    mods = tl mods;
+  }
+}
+
+ParserCtx.get_current_module(ctx: self ref ParserCtx): ref ShModule
+{
+  m := ctx.find_module(ctx.current_module);
+  return m;
 }
 
 init()
@@ -127,24 +201,30 @@ parse_toks(toks: array of ref TokNode, g: array of ref GrammarNode): array of re
   do
   {
     lt := len toks;
-    #sys->print("Loop %d: ", ctr);
-    #print_toks_short(toks);
+    sys->print("Loop %d: ", ctr);
+    print_toks_short(toks);
     ctr ++;
     changed = 0;
-    fast: for (i := 0; i <= lt; i ++) {
+    fast: for (i := 0; i < lt; i ++) {
       for (j := 0; j < lgns; j++) {
         gj:= g[j];
-        if (check_grammar_node_match(toks[lt - i:], gj) == 1) {
+        if (check_grammar_node_match(toks[i:], gj) == 1) {
           #sys->print("Something matched !\n");
           #gj.print_expr();
           #sys->print("Before replace: ");
           #print_toks_short(toks);
 
-          gj.callback(gj.ctx, toks[lt-i: lt-i+len gj.expr]);
+          if ((i+len gj.expr) > lt) {
+            continue;
+          }
+          #sys->print("len toks: %d, i: %d, len gj.expr: %d\n", len toks, i, len gj.expr);
+          result := gj.callback(gj.ctx, toks[i:i+len gj.expr]);
           if (gj.transform == S_NONE) {
-            toks = replace_toks(toks, lt-i, len gj.expr, array[0] of ref TokNode);
+            toks = replace_toks(toks, i, len gj.expr, array[0] of ref TokNode);
+          } else if (gj.transform == nil) {
+            toks = replace_toks(toks, i, len gj.expr, result);
           } else {
-            toks = replace_toks(toks, lt-i, len gj.expr, array[] of {mk_tok(toks[lt - i].start, toks[lt - i].line, "", gj.transform)});
+            toks = replace_toks(toks, i, len gj.expr, array[] of {mk_tok(toks[i].start, toks[i].line, "", gj.transform)});
           }
           #sys->print("After replace: ");
           changed = 1;
