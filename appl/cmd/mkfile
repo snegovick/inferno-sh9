@@ -1,13 +1,15 @@
 <../../mkconfig
 
 TARG=\
-	sh9.dis\
+  sh9.dis\
   sh92.dis\
+  sh9cmd.dis\
 
 SYSMODULES=\
   sh9util.m\
   sh9parser.m\
-	sys.m\
+  sh9cmd.m\
+  sys.m\
 
 DISBIN=$ROOT/dis
 
