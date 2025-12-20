@@ -9,7 +9,7 @@ print_toks: fn(toks: array of ref TokNode);
 print_toks_short: fn(toks: array of ref TokNode);
 check_grammar_node_match: fn(toks: array of ref TokNode, gn: ref GrammarNode): int;
 replace_toks: fn(src: array of ref TokNode, replace_start: int, replace_len: int, replace_with: array of ref TokNode): array of ref TokNode;
-parse_toks: fn(toks: array of ref TokNode, g: array of ref GrammarNode): array of ref TokNode;
+parse_toks: fn(toks: array of ref TokNode, g: array of ref GrammarNode, debug_printing: int): array of ref TokNode;
 init:	fn();
 
 TokNode: adt {
@@ -17,6 +17,7 @@ TokNode: adt {
   line: int;
   tok: string;
   typ: string;
+  retcode: int;
 };
 
 ModProc: adt {
@@ -46,6 +47,7 @@ ParserCtx: adt {
   find_var_in_current_module: fn(ctx: self ref ParserCtx, name: string): ref ModVar;
   find_module: fn(ctx: self ref ParserCtx, name: string): ref ShModule;
   print_all_vars: fn(ctx: self ref ParserCtx);
+  ctxt: ref Draw->Context;
 };
 
 GrammarNode: adt {
