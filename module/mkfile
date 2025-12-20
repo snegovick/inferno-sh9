@@ -3,6 +3,7 @@
 MODS=\
 	sh9util.m\
 	sh9parser.m\
+	sh9cmd.m\
 
 <mkmod
 
