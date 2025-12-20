@@ -522,5 +522,5 @@ init(ctxt: ref Draw->Context, argv: list of string) {
 
 	toks1 := tokenize("AB = 'smth \"test\"	'; echo ${AB}; echo $AB", 0);
 	grammar:= mk_grammar(pctx);
-	parse_toks(toks1, grammar);
+	parse_toks(toks1, grammar, 0);
 }
