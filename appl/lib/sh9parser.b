@@ -1,6 +1,7 @@
 implement Sh9Parser;
 
 include "sys.m";
+include "draw.m";
 include "sh9parser.m";
 include "sh9util.m";
 
@@ -194,14 +195,16 @@ replace_toks(src: array of ref TokNode, replace_start: int, replace_len: int, re
   return to_array(new_toks);
 }
 
-parse_toks(toks: array of ref TokNode, g: array of ref GrammarNode): array of ref TokNode {
+parse_toks(toks: array of ref TokNode, g: array of ref GrammarNode, debug_printing: int): array of ref TokNode {
   lgns := len g;
   changed := 0;
   ctr := 0;
   do
   {
     lt := len toks;
-    sys->print("Loop %d: ", ctr);
+    if (debug_printing) {
+      sys->print("Loop %d: ", ctr);
+    }
     print_toks_short(toks);
     ctr ++;
     changed = 0;
@@ -209,15 +212,19 @@ parse_toks(toks: array of ref TokNode, g: array of ref GrammarNode): array of re
       for (j := 0; j < lgns; j++) {
         gj:= g[j];
         if (check_grammar_node_match(toks[i:], gj) == 1) {
-          #sys->print("Something matched !\n");
-          #gj.print_expr();
-          #sys->print("Before replace: ");
-          #print_toks_short(toks);
+          if (debug_printing) {
+            sys->print("Something matched !\n");
+            gj.print_expr();
+            sys->print("Before replace: ");
+            print_toks_short(toks);
+          }
 
           if ((i+len gj.expr) > lt) {
             continue;
           }
-          #sys->print("len toks: %d, i: %d, len gj.expr: %d\n", len toks, i, len gj.expr);
+          if (debug_printing) {
+            sys->print("len toks: %d, i: %d, len gj.expr: %d\n", len toks, i, len gj.expr);
+          }
           result := gj.callback(gj.ctx, toks[i:i+len gj.expr]);
           if (gj.transform == S_NONE) {
             toks = replace_toks(toks, i, len gj.expr, array[0] of ref TokNode);
@@ -226,7 +233,9 @@ parse_toks(toks: array of ref TokNode, g: array of ref GrammarNode): array of re
           } else {
             toks = replace_toks(toks, i, len gj.expr, array[] of {mk_tok(toks[i].start, toks[i].line, "", gj.transform)});
           }
-          #sys->print("After replace: ");
+          if (debug_printing) {
+            sys->print("After replace: ");
+          }
           changed = 1;
           break fast;
         }
