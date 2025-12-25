@@ -7,6 +7,7 @@ Command: adt
 {
 	args: list of string;
 	inf, outf: string;
+	infd, outfd: ref Sys->FD;
 	append: int;
 };
 
