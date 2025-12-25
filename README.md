@@ -15,3 +15,17 @@ Run this to build dis files and install module files:
 ```
 mk clean; mk; mk install
 ```
+
+## Current progress
+
+* variable substitution: yes
+* command calling: yes
+* command output substitution: no
+* scripts: no
+* if/elif/else conditional execution: no
+* for loop: no
+* while loop: no
+* functions/procedures: no
+* keyboard interrupt handling: no
+* arrays: no
+* tab completion: no
