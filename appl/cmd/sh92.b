@@ -57,7 +57,7 @@ HashVal: import hash;
 Logger: import sh9l;
 LOG_DBG, LOG_INF, LOG_WRN, LOG_ERR: import sh9l;
 logger: ref Logger;
-verbosity := LOG_WRN;
+verbosity : int;
 
 stdin: ref sys->FD;
 stderr: ref sys->FD;
@@ -801,6 +801,7 @@ init(ctxt: ref Draw->Context, argv: list of string) {
     argv = tl argv;
   }
 
+  verbosity = LOG_WRN;
   for(; argv != nil && len hd argv && (hd argv)[0]=='-'; argv = tl argv) {
     case hd argv {
       "-e" =>
@@ -809,13 +810,14 @@ init(ctxt: ref Draw->Context, argv: list of string) {
       nflag = 1;
       "-l" =>
       lflag = 1;
-      "-V" =>
-      argv = tl argv;
-      if(len argv != 1){
-        usage();
-        return;
-      }
-      verbosity = int hd argv;
+      "-V" => {
+        argv = tl argv;
+        if(len argv != 1){
+          usage();
+          return;
+        }
+        verbosity = int hd argv;
+      };
       "-c" =>
       argv = tl argv;
       if(len argv != 1){
@@ -828,10 +830,6 @@ init(ctxt: ref Draw->Context, argv: list of string) {
       return;
     }
   }
-
-  sys->print("Verbosity: %d\n", verbosity);
-  logger = ref Logger;
-  logger.set_level(verbosity);
 
   if (lflag)
     startup(ctxt, grammar);
@@ -860,6 +858,10 @@ init(ctxt: ref Draw->Context, argv: list of string) {
   dfd := sys->open("/dev/cons", sys->OREAD);
   if(dfd == nil)
     return;
+
+  sys->print("Verbosity: %d\n", verbosity);
+  logger = ref Logger;
+  logger.set_level(verbosity);
 
   offset : int = 0;
   temp : int;
