@@ -204,8 +204,8 @@ parse_toks(toks: array of ref TokNode, g: array of ref GrammarNode, debug_printi
     lt := len toks;
     if (debug_printing) {
       sys->print("Loop %d: ", ctr);
+      print_toks_short(toks);
     }
-    print_toks_short(toks);
     ctr ++;
     changed = 0;
     fast: for (i := 0; i < lt; i ++) {

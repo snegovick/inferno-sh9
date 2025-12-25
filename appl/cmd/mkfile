@@ -9,6 +9,7 @@ SYSMODULES=\
   sh9util.m\
   sh9parser.m\
   sh9cmd.m\
+  sh9log.m\
   sys.m\
 
 DISBIN=$ROOT/dis

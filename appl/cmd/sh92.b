@@ -5,6 +5,7 @@ include "draw.m";
 include "sh9util.m";
 include "sh9parser.m";
 include "sh9cmd.m";
+include "sh9log.m";
 include "bufio.m";
 include "env.m";
 include "hash.m";
@@ -26,6 +27,7 @@ sys: Sys;
 sh9u: Sh9Util;
 sh9p: Sh9Parser;
 sh9cmd: Sh9Cmd;
+sh9l: Sh9Log;
 bufio: Bufio;
 env: Env;
 hash: Hash;
@@ -51,6 +53,11 @@ Iobuf: import bufio;
 
 HashTable: import hash;
 HashVal: import hash;
+
+Logger: import sh9l;
+LOG_DBG, LOG_INF, LOG_WRN, LOG_ERR: import sh9l;
+logger: ref Logger;
+verbosity := LOG_WRN;
 
 stdin: ref sys->FD;
 stderr: ref sys->FD;
@@ -217,19 +224,18 @@ mkprog(ctxt: ref Draw->Context, arg: list of string, infd, outfd: ref Sys->FD, w
   waitpid <-= pid;
 
   if(pid < 0 || arg == nil) {
-    sys->print("no args\n");
+    logger.dbg("no args");
     return;
   }
 
-  sys->print("exec: ");
+  logger.dbg("exec: ");
   al:= len arg;
   a:=arg;
   for (i:=0; i<al; i++) {
     ar:= hd a;
-    sys->print("\"%s\" ", ar);
+    logger.dbg(sys->sprint("\"%s\" ", ar));
     a = tl a;
   }
-  sys->print("\n");
   {
     exec(ctxt, arg, console);
   }exception{
@@ -420,7 +426,7 @@ tokenize(line: string, line_n: int): array of ref TokNode {
 }
 
 zstmt_assign(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
-  sys->print("ASSIGN STMT\n");
+  logger.dbg("ASSIGN STMT");
   m:= c.get_current_module();
   v:= ref ModVar;
   v.name= toks[0].tok;
@@ -445,7 +451,7 @@ unquote(s: string): string {
 }
 
 zstmt_cmd_eol_call(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
-  sys->print("CMD EOL CALL\n");
+  logger.dbg("CMD EOL CALL");
   pl:= ref Pipeline;
   cmd:= ref Command;
   cmd.args = unquote(toks[0].tok) :: cmd.args;
@@ -458,23 +464,27 @@ zstmt_cmd_eol_call(c: ref ParserCtx, toks: array of ref TokNode): array of ref T
 }
 
 zstmt_cmd_call(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
-  sys->print("CMD CALL\n");
-  print_toks(toks);
-  sys->print("tokenize \"%s\"\n", toks[1].tok);
+  logger.dbg("CMD CALL");
+  if (verbosity <= LOG_DBG) {
+    print_toks(toks);
+  }
+  logger.dbg(sys->sprint("tokenize \"%s\"\n", toks[1].tok));
   args:= tokenize(toks[1].tok, 0);
-  print_toks(args);
+  if (verbosity <= LOG_DBG) {
+    print_toks(args);
+  }
   pl:= ref Pipeline;
   cmd:= ref Command;
   cmd.args = unquote(toks[0].tok) :: cmd.args;
-  sys->print("args: ");
-  sys->print("\"%s\" ", toks[0].tok);
+  logger.dbg("args: ");
+  logger.dbg(sys->sprint("\"%s\" ", toks[0].tok));
   la:= len args;
   for (i:=0; i<la; i++) {
     if (args[i].typ == S_EOL) {
       continue;
     }
     cmd.args = unquote(args[i].tok) :: cmd.args;
-    sys->print("\"%s\" ", args[i].tok);
+    logger.dbg(sys->sprint("\"%s\" ", args[i].tok));
   }
   cmd.args = reverse_list(cmd.args);
   pl.cmds = cmd :: pl.cmds;
@@ -496,34 +506,31 @@ zsqstr_to_expr(nil: ref ParserCtx, toks: array of ref TokNode): array of ref Tok
 }
 
 zvar_sub_expr(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
-  sys->print("VAR SUB\n");
+  logger.dbg("VAR SUB\n");
   varname:=toks[1].tok;
   if (varname == "{") {
     varname = toks[2].tok;
   }
   v:= c.find_var_in_current_module(varname);
   if (v == nil) {
-    sys->print("Var %s is nil\nAll vars:\n", varname);
+    logger.dbg(sys->sprint("Var %s is nil\nAll vars:\n", varname));
     c.print_all_vars();
   }
-  sys->print("VAR %s SUB: %s\n", v.name, v.val);
+  logger.dbg(sys->sprint("VAR %s SUB: %s\n", v.name, v.val));
   tn:= mk_tok(toks[0].start, toks[0].line, v.val, S_EXPR);
   return array[1] of {tn};
 }
 
 zcmd_sub_call_expr(c: ref ParserCtx, toks: array of ref TokNode): array of ref TokNode {
-  sys->print("CMD SUB\n");
+  logger.dbg("CMD SUB");
   cmdname := toks[2].tok;
   args:= tokenize(toks[1].tok, 0);
   pl:= ref Pipeline;
   cmd:= ref Command;
   cmd.args = cmdname :: cmd.args;
-  # sys->print("args: ");
-  # sys->print("%s ", toks[0].tok);
   la:= len args;
   for (i:=0; i<la; i++) {
     cmd.args = unquote(args[i].tok) :: cmd.args;
-    #sys->print("%s ", args[i].tok);
   }
   cmd.args = reverse_list(cmd.args);
 
@@ -539,7 +546,6 @@ zcmd_sub_call_expr(c: ref ParserCtx, toks: array of ref TokNode): array of ref T
   cmd.outfd = outfd;
   pl.cmds = cmd :: pl.cmds;
   pl.term = Seq;
-  #sys->print("Call runpipeline\n");
 
   ret := runpipeline(c.ctxt, pl);
 
@@ -766,6 +772,8 @@ init(ctxt: ref Draw->Context, argv: list of string) {
   sh9p = load Sh9Parser Sh9Parser->PATH;
   sh9p->init();
   sh9cmd = load Sh9Cmd Sh9Cmd->PATH;
+  sh9l = load Sh9Log Sh9Log->PATH;
+  sh9l->init();
   env = load Env Env->PATH;
   bufio = load Bufio Bufio->PATH;
   hash = load Hash Hash->PATH;
@@ -792,6 +800,7 @@ init(ctxt: ref Draw->Context, argv: list of string) {
   if(argv != nil) {
     argv = tl argv;
   }
+
   for(; argv != nil && len hd argv && (hd argv)[0]=='-'; argv = tl argv) {
     case hd argv {
       "-e" =>
@@ -800,6 +809,13 @@ init(ctxt: ref Draw->Context, argv: list of string) {
       nflag = 1;
       "-l" =>
       lflag = 1;
+      "-V" =>
+      argv = tl argv;
+      if(len argv != 1){
+        usage();
+        return;
+      }
+      verbosity = int hd argv;
       "-c" =>
       argv = tl argv;
       if(len argv != 1){
@@ -812,6 +828,10 @@ init(ctxt: ref Draw->Context, argv: list of string) {
       return;
     }
   }
+
+  sys->print("Verbosity: %d\n", verbosity);
+  logger = ref Logger;
+  logger.set_level(verbosity);
 
   if (lflag)
     startup(ctxt, grammar);
@@ -908,9 +928,11 @@ init(ctxt: ref Draw->Context, argv: list of string) {
           history_entry_cur = 0;
           seek = 0;
           sys->print("\n");
-          sys->print("run: \"%s\"\n", string buf[0: offset]);
+          logger.dbg(sys->sprint("run: \"%s\"\n", string buf[0: offset]));
           toks := tokenize(string buf[0: offset], 0);
-          print_toks(toks);
+          if (verbosity <= LOG_DBG) {
+            print_toks(toks);
+          }
           if(toks != nil) {
             parse_toks(toks, grammar, 0);
             #runit(ctxt, parseit(arg));
