@@ -167,8 +167,7 @@ init(ctxt: ref Context, argv: list of string)
   seek := 0;
 
   bio := bufio->fopen(dfd, sys->OREAD);
-  
-  sys->print("SH9 v0\n");
+
   sys->print("%s", prompt);
 	for(;;) {
 		temp = bio.getb();    
